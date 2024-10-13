@@ -11,10 +11,11 @@ from tabulate import tabulate
 from tqdm import tqdm
 
 def parse_arguments():
-    parser = argparse.ArgumentParser(description='Fetch file report and delete orphaned media assets from Immich.')
+    parser = argparse.ArgumentParser(description='Fetch file report and add orphaned media assets to Album from Immich.')
     # Make API key and Immich address arguments optional
     parser.add_argument('--admin_apikey', help='Immich admin API key for fetching reports', nargs='?', default=None)
     parser.add_argument('--user_apikey', help='User-specific Immich API key for deletion', nargs='?', default=None)
+    parser.add_argument('--user_id', help='Immich admin Profile ID', nargs='?', default=None)
     parser.add_argument('--immichaddress', help='Full address for Immich, including protocol and port', nargs='?', default=None)
     parser.add_argument('--no_prompt', action='store_true', help='Delete orphaned media assets without confirmation')
     return parser.parse_args()
@@ -32,6 +33,8 @@ def main():
     admin_api_key = args.admin_apikey if args.admin_apikey else input('Enter the Immich admin API key: ')
     # Prompt for user API key if not provided
     user_api_key = args.user_apikey if args.user_apikey else input('Enter the Immich user API key for deletion: ')
+    # Prompt for USER ID if not provided
+    user_id = args.user_id if args.user_id else input('Enter the Immich ProfileID: ')
     # Prompt for Immich address if not provided
     immich_server = args.immichaddress if args.immichaddress else input('Enter the full web address for Immich, including protocol and port: ')
 
@@ -69,7 +72,7 @@ def main():
         print(tabulate(table_data, headers=['Path Value', 'Entity ID'], tablefmt='pretty'))
         print()
 
-        summary = f'There {"is" if num_entries == 1 else "are"} {num_entries} orphaned media asset{"s" if num_entries != 1 else ""}. Would you like to delete {"them" if num_entries != 1 else "it"} from Immich? (yes/no): '
+        summary = f'There {"is" if num_entries == 1 else "are"} {num_entries} orphaned media asset{"s" if num_entries != 1 else ""}. Would you like to add to album {"them" if num_entries != 1 else "it"} in Immich? (yes/no): '
         user_input = input(summary).lower()
         print()
 
@@ -78,23 +81,41 @@ def main():
             return
 
     headers['x-api-key'] = user_api_key  # Use user API key for deletion
-    with tqdm(total=num_entries, desc="Deleting orphaned media assets", unit="asset") as progress_bar:
+    with tqdm(total=num_entries, desc="Managing orphaned media assets", unit="asset") as progress_bar:
         for asset in orphan_media_assets:
             entity_id = asset['entityId']
-            asset_url = f'{api_url}/assets'
-            delete_payload = json.dumps({'force': True, 'ids': [entity_id]})
+            asset_url = f'{api_url}/albums'
+            url = f'{api_url}/albums'
+            payload = json.dumps({'force': True, 'ids': [entity_id]})
+            payload = json.dumps({
+            	"albumName": "OfflineAssetPyScript",
+            	"albumUsers": [
+            	{
+            		"role": "editor",
+            		"userId": "(user_id)"
+            	}
+            	],
+            	"assetIds": [
+            		"{entity_id}"
+            	],
+            	"description": "Files From Script"
+            	})
+            headers = {
+            		'Content-Type': 'application/json',
+            		'Accept': 'application/json'
+            	}  
             headers = {'Content-Type': 'application/json', 'x-api-key': user_api_key}
             try:
-                response = requests.delete(asset_url, headers=headers, data=delete_payload)
+                response = requests.request("POST", url, headers=headers, data=payload)
                 response.raise_for_status()
             except requests.exceptions.HTTPError as e:
                 if response.status_code == 400:
-                    print(f"Failed to delete asset {entity_id} due to potential API key mismatch. Ensure you're using the asset owners API key as the User API key.")
+                    print(f"Failed to manage asset {entity_id} due to potential API key mismatch. Ensure you're using the asset owners API key as the User API key.")
                 else:
-                    print(f"Failed to delete asset {entity_id}: {str(e)}")
+                    print(f"Failed to manage asset {entity_id}: {str(e)}")
                 continue
             progress_bar.update(1)
-    print('Orphaned media assets deleted successfully!')
+    print('Orphaned media assets managed successfully!')
 
 if __name__ == '__main__':
     main()
