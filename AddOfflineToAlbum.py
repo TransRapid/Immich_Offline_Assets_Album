@@ -92,7 +92,7 @@ def main():
             	"albumUsers": [
             	{
             		"role": "editor",
-            		"userId": "(user_id)"
+            		"userId": "{user_id}"
             	}
             	],
             	"assetIds": [
