@@ -1,12 +1,5 @@
-# Immich Remove Offline Files
+# Immich ADD OFFLINE TO ALBUM
 
-A simple way to remove orphaned offline assets from Immich's database.
-
-This Python script assists in managing the Immich database by detecting and removing orphaned media assets.
-
-These orphans may occur if files are deleted from the filesystem without being properly removed from Immich.
-
-Orphaned assets can be checked via the repair page within the admin interface of Immich.
 
 ## Prerequisites
 
